@@ -1,0 +1,957 @@
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ;*********************************************************
+                      00002 ;this prpgram written by areen alkhrabsheh and ro'oa dofash
+                      00003 ;The signal is connected to RB0 
+                      00004 ;Timer2 used to get 1 Sec of time to measure the frequency of signal 
+                      00005 ;7-Segments is connected to PORTB (We connect RB1 to a, RB2 to b ???.And RB7 to g)
+                      00006 ;to return the rang of frequency as a hexadecimal numbers 
+                      00007 ;The program uses a PIC16F877A running at crystal oscillator of frequency 4MHz. 
+                      00008 ;**********************************************************
+                      00009  include "p16f877A.inc"
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ;  MPASM PIC16F877A processor include
+                      00005 ; 
+                      00006 ;  (c) Copyright 1999-2013 Microchip Technology, All rights reserved
+                      00007 ;==========================================================================
+                      00008 
+                      00566         LIST
+                      00010 ;**********************************************************
+                      00011 ; Macro definitions
+                      00012 push    macro
+                      00013 
+                      00014         movwf           WTemp           ; WTemp must be reserved in all banks
+                      00015         swapf           STATUS,W        ; store in W without affecting status bits
+                      00016         banksel         StatusTemp      ; select StatusTemp bank
+                      00017         movwf           StatusTemp      ; save STATUS
+                      00018         endm
+                      00019 
+                      00020 pop     macro
+                      00021 
+                      00022         banksel         StatusTemp      ; point to StatusTemp bank
+                      00023         swapf           StatusTemp,W; unswap STATUS nibbles into W      
+                      00024         movwf           STATUS          ; restore STATUS
+                      00025         swapf           WTemp,F         ; unswap W nibbles
+                      00026         swapf           WTemp,W         ; restore W without affecting STATUS
+                      00027         endm
+                      00028 ;**********************************************************
+                      00029 ;**********************************************************
+                      00030 ; User-defined variables
+                      00031         
+                      00032         cblock          0x20            ; bank 0 assignnments
+  00000020            00033                         WTemp           ; WTemp must be reserved in all banks
+  00000021            00034                         StatusTemp
+  00000022            00035                         RB0COUNTS
+  00000023            00036             RB0INT
+  00000024            00037                         TMR2_Counter
+  00000025            00038                     R1_Counter
+  00000026            00039                         G1_Counter
+  00000027            00040                         Y1_Counter
+  00000028            00041                     R2_Counter
+  00000029            00042                         G2_Counter
+  0000002A            00043                         Y2_Counter
+  0000002B            00044                         Counter5
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+  0000002C            00045                         check_5
+  0000002D            00046                         COUNT5S
+                      00047         endc
+                      00048 
+                      00049         cblock          0x0A0           ; bank 1 assignnments
+  000000A0            00050                         WTemp1          ; bank 1 WTemp
+                      00051         endc
+                      00052 
+                      00053         cblock          0x120           ; bank 2 assignnments
+  00000120            00054                         WTemp2          ; bank 2 WTemp
+                      00055         endc
+                      00056 
+                      00057         cblock          0x1A0           ; bank 3 assignnments
+  000001A0            00058                         WTemp3          ; bank 3 WTemp
+                      00059         endc
+                      00060 
+                      00061 ;**********************************************************
+                      00062 ; Start of executable code
+0000                  00063         org     0x00            ;Reset vector
+0000   0000           00064         nop
+0001   2805           00065         goto            Main            
+0004                  00066         org     0x04            
+0004   28CE           00067         goto            INT_SVC
+                      00068         ;;;;;;; Main program ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+0005                  00069 Main
+0005   2008           00070         call    Initial                         ;Initialize everything
+0006                  00071 MainLoop
+0006   2848           00072      goto   Traffic_lights
+0007   2806           00073         goto    MainLoop                        ;Do it again
+                      00074 
+                      00075 ;;;;;;; Initial subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      00076 ; This subroutine performs all initializations of variables and registers.
+0008                  00077 Initial 
+0008   1683 1303      00078         banksel TRISB                           ;Select bank1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000A   0186           00079         clrf    TRISB                           ;set all bits of port B to output
+000B   1683 1303      00080         banksel TRISC                           ;Select bank1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000D   0187           00081         clrf    TRISC                           ;set all bits of port C to output for seven_seg1
+000E   1683 1303      00082         banksel TRISE                           ;Select bank1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0010   0189           00083         clrf    TRISE                           ;set all bits of port E to output for 7_seg 2
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0011   1406           00084         bsf             TRISB,RB0            ;set bit 0 as input for the signal
+0012   1283 1303      00085     BANKSEL T2CON                ;select bank 0
+0014   307E           00086         movlw   0x7E
+0015   0092           00087         movwf   T2CON                       ;POSTSCALER =(1:16) TMR2
+                      00088                                                                 ;Prescaler TMR2 (1:16)
+0016   178B           00089         bsf             INTCON,GIE                      ;Enable Global Interrupt 
+0017   170B           00090         bsf             INTCON,PEIE                     ;Enable peripheral interrupts
+0018   160B           00091         bsf             INTCON,INTE                     ;Enable EXTERNAL INTERRUPT
+0019   1683 1303      00092     banksel PIE1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+001B   148C           00093     bsf     PIE1,TMR2IE         ;TIMER2 INTERRUPT ON
+                      00094 
+001C   1683 1303      00095         BANKSEL PR2
+001E   30C3           00096         movlw   D'195'                          ;..
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+001F   0092           00097         movwf   PR2                             ;SETTING TMR2 TO INTERRUPT EVERY  50ms
+0020   1283 1303      00098                         BANKSEL PORTB
+                      00099         
+0022   300D           00100         movlw   B'00001101' ;tl1 green,tl2 red
+0023   0086           00101         movwf   PORTB                   
+0024   01A4           00102         clrf    TMR2_Counter
+0025   01A2           00103         clrf    RB0COUNTS
+0026   01A3           00104     clrf    RB0INT
+0027   01AD           00105         clrf    COUNT5S;
+0028   300F           00106     movlw d'15'
+0029   00A5           00107         movwf R1_Counter
+002A   00A8           00108         movwf R2_Counter
+002B   3008           00109     movlw d'8'
+002C   00A6           00110         movwf G1_Counter
+002D   00A9           00111         movwf G2_Counter
+002E   3004           00112     movlw d'4'
+002F   00A7           00113         movwf Y1_Counter
+0030   00AA           00114         movwf Y2_Counter
+0031   3006           00115     movlw d'6'
+0032   00AB           00116         movwf Counter5
+0033   1283 1303      00117         banksel PORTC
+0035   3008           00118     movlw d'8'
+0036   203D           00119         call Seven_segments
+0037   0087           00120         movwf PORTC
+0038   3000           00121         movlw d'0'
+0039   203D           00122         call Seven_segments
+003A   0089           00123         movwf PORTE
+003B   01AC           00124         clrf check_5
+003C   0008           00125         Return
+                      00126 ;**********************************************************
+003D                  00127 Seven_segments
+Warning[203]: Found opcode in column 1. (addwf)
+Message[305]: Using default destination of 1 (file).
+003D   0782           00128 addwf PCL
+Warning[203]: Found opcode in column 1. (retlw)
+003E   343F           00129 retlw b'00111111';0
+Warning[203]: Found opcode in column 1. (retlw)
+003F   3406           00130 retlw b'00000110';1
+Warning[203]: Found opcode in column 1. (retlw)
+0040   345B           00131 retlw b'01011011';2
+Warning[203]: Found opcode in column 1. (retlw)
+0041   344F           00132 retlw b'01001111';3
+Warning[203]: Found opcode in column 1. (retlw)
+0042   3466           00133 retlw b'01100110';4
+Warning[203]: Found opcode in column 1. (retlw)
+0043   342D           00134 retlw b'00101101';5
+Warning[203]: Found opcode in column 1. (retlw)
+0044   347D           00135 retlw b'01111101';6
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+Warning[203]: Found opcode in column 1. (retlw)
+0045   3447           00136 retlw b'01000111';7
+Warning[203]: Found opcode in column 1. (retlw)
+0046   347F           00137 retlw b'01111111';8
+Warning[203]: Found opcode in column 1. (retlw)
+0047   346F           00138 retlw b'01101111';9
+                      00139 
+                      00140 ;**********************************************************
+                      00141 ;;;;;;; Traffic light subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+0048                  00142 Traffic_lights
+0048                  00143 TL1
+                      00144 
+Warning[203]: Found opcode in column 1. (btfss)
+0048   1C86           00145 btfss PORTB,RB1
+Warning[203]: Found opcode in column 1. (GOTO)
+0049   2857           00146 GOTO   Yellow1
+Warning[203]: Found opcode in column 1. (btfss)
+004A   1D06           00147 btfss PORTB,RB2
+Warning[203]: Found opcode in column 1. (GOTO)
+004B   284D           00148 GOTO   Green1
+Warning[203]: Found opcode in column 1. (GOTO)
+004C   2865           00149 GOTO   Red1
+                      00150 ;----------
+004D                  00151 Green1 ;8s
+Warning[203]: Found opcode in column 1. (decf)
+004D   03A6           00152 decf   G1_Counter,f
+Warning[203]: Found opcode in column 1. (movf)
+004E   0826           00153 movf  G1_Counter,w
+Warning[203]: Found opcode in column 1. (call)
+004F   203D           00154 call Seven_segments
+Warning[203]: Found opcode in column 1. (movwf)
+0050   0087           00155 movwf PORTC
+Warning[203]: Found opcode in column 1. (movlw)
+0051   3000           00156 movlw d'0'
+Warning[203]: Found opcode in column 1. (call)
+0052   203D           00157 call Seven_segments
+Warning[203]: Found opcode in column 1. (movwf)
+0053   0089           00158 movwf PORTE
+Warning[203]: Found opcode in column 1. (movf)
+0054   0826           00159 movf  G1_Counter,w
+Warning[203]: Found opcode in column 1. (btfss)
+0055   1D03           00160 btfss   STATUS,Z
+Warning[203]: Found opcode in column 1. (GOTO)
+0056   2896           00161 GOTO TL2
+                      00162 
+                      00163 ;--------------
+0057                  00164 Yellow1 ;4s
+Warning[203]: Found opcode in column 1. (movf)
+0057   0827           00165 movf  Y1_Counter,w
+Warning[203]: Found opcode in column 1. (call)
+0058   203D           00166 call Seven_segments
+Warning[203]: Found opcode in column 1. (movwf)
+0059   0087           00167 movwf PORTC
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+Warning[203]: Found opcode in column 1. (movlw)
+005A   3000           00168 movlw d'0'
+Warning[203]: Found opcode in column 1. (call)
+005B   203D           00169 call Seven_segments
+Warning[203]: Found opcode in column 1. (movwf)
+005C   0089           00170 movwf PORTE
+Warning[203]: Found opcode in column 1. (bcf)
+005D   1086           00171 bcf PORTB,RB1
+Warning[203]: Found opcode in column 1. (bsf)
+005E   1506           00172 bsf PORTB,RB2
+Warning[203]: Found opcode in column 1. (movf)
+005F   0827           00173 movf  Y1_Counter,w
+Warning[203]: Found opcode in column 1. (addlw)
+0060   3E01           00174 addlw d'1'
+Warning[203]: Found opcode in column 1. (sublw)
+0061   3C01           00175 sublw d'1'
+Warning[203]: Found opcode in column 1. (decf)
+0062   03A7           00176 decf   Y1_Counter,f
+Warning[203]: Found opcode in column 1. (btfss)
+0063   1C03           00177 btfss   STATUS,C
+Warning[203]: Found opcode in column 1. (GOTO)
+0064   2896           00178 GOTO TL2
+                      00179 ;------------
+0065                  00180 Red1 ;15s
+Warning[203]: Found opcode in column 1. (movf)
+Message[305]: Using default destination of 1 (file).
+0065   08AC           00181 movf check_5
+Warning[203]: Found opcode in column 1. (btfsc)
+0066   182C           00182 btfsc check_5,0
+Warning[203]: Found opcode in column 1. (goto)
+0067   2873           00183 goto   redcount2
+Warning[203]: Found opcode in column 1. (movf)
+0068   082B           00184 movf  Counter5,w
+Warning[203]: Found opcode in column 1. (addlw)
+0069   3E01           00185 addlw d'1'
+Warning[203]: Found opcode in column 1. (sublw)
+006A   3C01           00186 sublw d'1'
+Warning[203]: Found opcode in column 1. (decf)
+Message[305]: Using default destination of 1 (file).
+006B   03AB           00187 decf Counter5
+Warning[203]: Found opcode in column 1. (btfsc)
+006C   1803           00188 btfsc   STATUS,C
+Warning[203]: Found opcode in column 1. (goto)
+006D   2873           00189 goto   redcount2
+Warning[203]: Found opcode in column 1. (movf)
+006E   082B           00190 movf  Counter5,w
+Warning[203]: Found opcode in column 1. (call)
+006F   203D           00191 call Seven_segments
+Warning[203]: Found opcode in column 1. (movlw)
+0070   3001           00192 movlw d'1'
+Warning[203]: Found opcode in column 1. (call)
+0071   203D           00193 call Seven_segments
+Warning[203]: Found opcode in column 1. (goto)
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0072   287B           00194 goto colouring
+0073                  00195 redcount2
+Warning[203]: Found opcode in column 1. (movlw)
+0073   3001           00196 movlw 1
+Warning[203]: Found opcode in column 1. (movwf)
+0074   00AC           00197 movwf check_5
+Warning[203]: Found opcode in column 1. (movf)
+0075   0825           00198 movf  R1_Counter,w
+Warning[203]: Found opcode in column 1. (call)
+0076   203D           00199 call Seven_segments
+Warning[203]: Found opcode in column 1. (movwf)
+0077   0087           00200 movwf PORTC
+Warning[203]: Found opcode in column 1. (movlw)
+0078   3000           00201 movlw d'0'
+Warning[203]: Found opcode in column 1. (call)
+0079   203D           00202 call Seven_segments
+Warning[203]: Found opcode in column 1. (movwf)
+007A   0089           00203 movwf PORTE
+007B                  00204 colouring
+Warning[203]: Found opcode in column 1. (bsf)
+007B   1586           00205 bsf PORTB,RB3
+Warning[203]: Found opcode in column 1. (movf)
+007C   0825           00206 movf  R1_Counter,w
+Warning[203]: Found opcode in column 1. (addlw)
+007D   3E01           00207 addlw d'1'
+Warning[203]: Found opcode in column 1. (sublw)
+007E   3C01           00208 sublw d'1'
+Warning[203]: Found opcode in column 1. (decf)
+007F   03A5           00209 decf   R1_Counter,f
+Warning[203]: Found opcode in column 1. (btfss)
+0080   1C03           00210 btfss   STATUS,C
+Warning[203]: Found opcode in column 1. (goto)
+0081   2896           00211 goto    TL2
+0082   300F           00212     movlw d'15'
+0083   00A5           00213         movwf R1_Counter;
+0084   3008           00214     movlw d'8'
+0085   00A6           00215         movwf G1_Counter;
+0086   3004           00216     movlw d'4'
+0087   00A7           00217         movwf Y1_Counter;
+0088   3006           00218     movlw d'6'
+0089   00AB           00219         movwf Counter5;
+008A   01AC           00220         clrf check_5
+Warning[203]: Found opcode in column 1. (bsf)
+008B   1486           00221 bsf PORTB,RB1
+Warning[203]: Found opcode in column 1. (bcf)
+008C   1106           00222 bcf PORTB,RB2
+008D   1283 1303      00223         banksel PORTC
+008F   3008           00224     movlw d'8'
+0090   203D           00225         call Seven_segments
+0091   0087           00226         movwf PORTC
+0092   3000           00227         movlw d'0'
+0093   203D           00228         call Seven_segments
+0094   0089           00229         movwf PORTE
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+Warning[203]: Found opcode in column 1. (goto)
+0095   2896           00230 goto    TL2
+                      00231 ;-----------------
+                      00232 
+                      00233 
+0096                  00234 TL2
+Warning[203]: Found opcode in column 1. (btfss)
+0096   1D86           00235 btfss PORTB,RB3
+Warning[203]: Found opcode in column 1. (GOTO)
+0097   28A6           00236 GOTO   Yellow2
+Warning[203]: Found opcode in column 1. (btfss)
+0098   1E06           00237 btfss PORTB,RB4
+Warning[203]: Found opcode in column 1. (GOTO)
+0099   28A0           00238 GOTO   Green2
+Warning[203]: Found opcode in column 1. (GOTO)
+009A   289B           00239 GOTO   Red2
+009B                  00240 Red2 ;15s
+Warning[203]: Found opcode in column 1. (bsf)
+009B   1686           00241 bsf PORTB,RB5
+Warning[203]: Found opcode in column 1. (decf)
+009C   03A8           00242 decf   R2_Counter,f
+Warning[203]: Found opcode in column 1. (movf)
+009D   0828           00243 movf  R2_Counter,w
+Warning[203]: Found opcode in column 1. (btfss)
+009E   1D03           00244 btfss   STATUS,Z
+Warning[203]: Found opcode in column 1. (GOTO)
+009F   28C9           00245 GOTO  Continue
+                      00246 
+00A0                  00247 Green2 
+                      00248 
+Warning[203]: Found opcode in column 1. (bsf)
+00A0   1586           00249 bsf PORTB,RB3
+Warning[203]: Found opcode in column 1. (bcf)
+00A1   1206           00250 bcf PORTB,RB4
+Warning[203]: Found opcode in column 1. (decf)
+00A2   03A9           00251 decf   G2_Counter,f
+Warning[203]: Found opcode in column 1. (movf)
+00A3   0829           00252 movf  G2_Counter,w
+Warning[203]: Found opcode in column 1. (btfss)
+00A4   1D03           00253 btfss   STATUS,Z
+Warning[203]: Found opcode in column 1. (goto)
+00A5   28C9           00254 goto    Continue
+                      00255 
+00A6                  00256 Yellow2
+Warning[203]: Found opcode in column 1. (bcf)
+00A6   1186           00257 bcf PORTB,RB3
+Warning[203]: Found opcode in column 1. (bsf)
+00A7   1606           00258 bsf PORTB,RB4
+Warning[203]: Found opcode in column 1. (decf)
+00A8   03AA           00259 decf   Y2_Counter,f
+Warning[203]: Found opcode in column 1. (movf)
+00A9   082A           00260 movf  Y2_Counter,w
+Warning[203]: Found opcode in column 1. (btfss)
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00AA   1D03           00261 btfss   STATUS,Z
+00AB   28C9           00262         goto    Continue        
+00AC   300F           00263     movlw d'15'
+00AD   00A8           00264         movwf R2_Counter;
+00AE   3008           00265     movlw d'8'
+00AF   00A9           00266         movwf G2_Counter;
+00B0   3004           00267     movlw d'4'
+00B1   00AA           00268         movwf Y2_Counter;
+Warning[203]: Found opcode in column 1. (goto)
+00B2   289B           00269 goto Red2
+Warning[203]: Found opcode in column 1. (goto)
+00B3   28C9           00270 goto    Continue
+                      00271 ;**********************************************************
+                      00272 ; TIMER2 
+00B4                  00273 T2
+                      00274         
+00B4   0AA4           00275         incf    TMR2_Counter,F
+00B5   0824           00276         movf    TMR2_Counter,w
+00B6   3C14           00277         sublw   D'20'
+00B7   1D03           00278         btfss   STATUS,Z
+00B8   28C9           00279         goto    Continue
+00B9   01A4           00280         clrf    TMR2_Counter
+00BA   082D           00281     movfw   COUNT5S ; if the pb is alredy pressed 10 times make
+00BB   1D03           00282         btfss   STATUS,Z ; the tl1 red for 5 seconds
+00BC   28C1           00283         goto    redfor5s
+00BD   0823           00284     MOVF    RB0INT,W
+00BE   3C0A           00285     SUBLW   D'10'
+00BF   1D03           00286         BTFSS   STATUS,Z
+00C0   2848           00287     goto        Traffic_lights ; continue the lighting
+00C1                  00288 redfor5s
+00C1   01A3           00289         clrf RB0INT
+00C2   1486           00290     bsf  PORTB,RB1
+00C3   1506           00291     bsf  PORTB,RB2
+Message[305]: Using default destination of 1 (file).
+00C4   0AAD           00292     incf COUNT5S ;count for 5 seconds
+00C5   302D           00293     movlw COUNT5S
+00C6   3C06           00294     sublw d'6'
+00C7   1903           00295     btfsc STATUS,Z
+00C8   01AD           00296     clrf  COUNT5S
+Warning[207]: Found label after column 1. (Continue)
+00C9                  00297     Continue
+00C9   108C           00298         bcf             PIR1,TMR2IF
+00CA   28D3           00299         goto    POLL                            ;Check for another interrupt
+                      00300 ;**********************************************************
+                      00301 ;**********************************************************
+                      00302 ; EXTERNAL 
+00CB                  00303 EXTERNAL_INTERRUPT
+                      00304         
+00CB   0AA3           00305         incf    RB0INT,F   ; PUSHBUTTON PRESSES COUNTER
+00CC   108B           00306         bcf             INTCON,INTF
+00CD   28D3           00307         goto    POLL                            ;Check for another interrupt
+                      00308 ;**********************************************************
+00CE                  00309 INT_SVC
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+Warning[206]: Found call to macro in column 1. (push)
+                      00310 push
+                          M 
+00CE   00A0               M         movwf           WTemp           ; WTemp must be reserved in all banks
+00CF   0E03               M         swapf           STATUS,W        ; store in W without affecting status bits
+00D0   1283 1303          M         banksel         StatusTemp      ; select StatusTemp bank
+00D2   00A1               M         movwf           StatusTemp      ; save STATUS
+00D3                  00311 POLL
+00D3   188C           00312         btfsc   PIR1,TMR2IF                     ; Check for an TMR2 Interrupt
+00D4   28B4           00313         goto    T2
+00D5   188B           00314     btfsc INTCON,INTF
+00D6   28CB           00315         goto    EXTERNAL_INTERRUPT           ; check for an EXTERNAL Interrupt
+                      00316 
+                      00317         pop
+                          M 
+00D7   1283 1303          M         banksel         StatusTemp      ; point to StatusTemp bank
+00D9   0E21               M         swapf           StatusTemp,W; unswap STATUS nibbles into W      
+00DA   0083               M         movwf           STATUS          ; restore STATUS
+00DB   0EA0               M         swapf           WTemp,F         ; unswap W nibbles
+00DC   0E20               M         swapf           WTemp,W         ; restore W without affecting STATUS
+00DD   0009           00318         retfie
+                      00319 
+                      00320 ;**********************************************************
+                      00321         End
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE 10
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000006
+ADCS1                             00000007
+ADCS2                             00000006
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADRESH                            0000001E
+ADRESL                            0000009E
+BCLIE                             00000003
+BCLIF                             00000003
+BF                                00000000
+BRGH                              00000002
+C                                 00000000
+C1INV                             00000004
+C1OUT                             00000006
+C2INV                             00000005
+C2OUT                             00000007
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2CON                           0000001D
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCPR1                             00000015
+CCPR1H                            00000016
+CCPR1L                            00000015
+CCPR2                             0000001B
+CCPR2H                            0000001C
+CCPR2L                            0000001B
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CIS                               00000003
+CKE                               00000006
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE 11
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CKP                               00000004
+CM0                               00000000
+CM1                               00000001
+CM2                               00000002
+CMCON                             0000009C
+CMIE                              00000006
+CMIF                              00000006
+COUNT5S                           0000002D
+CREN                              00000004
+CSRC                              00000007
+CVR0                              00000000
+CVR1                              00000001
+CVR2                              00000002
+CVR3                              00000003
+CVRCON                            0000009D
+CVREN                             00000007
+CVROE                             00000006
+CVRR                              00000005
+Continue                          000000C9
+Counter5                          0000002B
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+D_A                               00000005
+D_NOT_A                           00000005
+EEADR                             0000010D
+EEADRH                            0000010F
+EECON1                            0000018C
+EECON2                            0000018D
+EEDATA                            0000010C
+EEDATH                            0000010E
+EEIE                              00000004
+EEIF                              00000004
+EEPGD                             00000007
+EXTERNAL_INTERRUPT                000000CB
+F                                 00000001
+FERR                              00000002
+FSR                               00000004
+G1_Counter                        00000026
+G2_Counter                        00000029
+GCEN                              00000007
+GIE                               00000007
+GO                                00000002
+GO_DONE                           00000002
+GO_NOT_DONE                       00000002
+Green1                            0000004D
+Green2                            000000A0
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE 12
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+INT_SVC                           000000CE
+IRP                               00000007
+Initial                           00000008
+Main                              00000005
+MainLoop                          00000006
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BO                            00000000
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OBF                               00000006
+OERR                              00000001
+OPTION_REG                        00000081
+P                                 00000004
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+PEIE                              00000006
+PEN                               00000002
+PIE1                              0000008C
+PIE2                              0000008D
+PIR1                              0000000C
+PIR2                              0000000D
+POLL                              000000D3
+PORTA                             00000005
+PORTB                             00000006
+PORTC                             00000007
+PORTD                             00000008
+PORTE                             00000009
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+PSPIE                             00000007
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE 13
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PSPIF                             00000007
+PSPMODE                           00000004
+R                                 00000002
+R1_Counter                        00000025
+R2_Counter                        00000028
+RA0                               00000000
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RA5                               00000005
+RB0                               00000000
+RB0COUNTS                         00000022
+RB0INT                            00000023
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RC0                               00000000
+RC1                               00000001
+RC2                               00000002
+RC3                               00000003
+RC4                               00000004
+RC5                               00000005
+RC6                               00000006
+RC7                               00000007
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+RD                                00000000
+RD0                               00000000
+RD1                               00000001
+RD2                               00000002
+RD3                               00000003
+RD4                               00000004
+RD5                               00000005
+RD6                               00000006
+RD7                               00000007
+RE0                               00000000
+RE1                               00000001
+RE2                               00000002
+READ_WRITE                        00000002
+RP0                               00000005
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE 14
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RP1                               00000006
+RSEN                              00000001
+RX9                               00000006
+RX9D                              00000000
+R_NOT_W                           00000002
+R_W                               00000002
+Red1                              00000065
+Red2                              0000009B
+S                                 00000003
+SEN                               00000000
+SMP                               00000007
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000093
+SSPBUF                            00000013
+SSPCON                            00000014
+SSPCON2                           00000091
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000094
+STATUS                            00000003
+SYNC                              00000004
+Seven_segments                    0000003D
+StatusTemp                        00000021
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1SYNC                            00000002
+T2                                000000B4
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TL1                               00000048
+TL2                               00000096
+TMR0                              00000001
+TMR0IE                            00000005
+TMR0IF                            00000002
+TMR1                              0000000E
+TMR1CS                            00000001
+TMR1H                             0000000F
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE 15
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TMR2_Counter                      00000024
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISA5                            00000005
+TRISB                             00000086
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+TRISC                             00000087
+TRISC0                            00000000
+TRISC1                            00000001
+TRISC2                            00000002
+TRISC3                            00000003
+TRISC4                            00000004
+TRISC5                            00000005
+TRISC6                            00000006
+TRISC7                            00000007
+TRISD                             00000088
+TRISD0                            00000000
+TRISD1                            00000001
+TRISD2                            00000002
+TRISD3                            00000003
+TRISD4                            00000004
+TRISD5                            00000005
+TRISD6                            00000006
+TRISD7                            00000007
+TRISE                             00000089
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TX8_9                             00000006
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE 16
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+Traffic_lights                    00000048
+UA                                00000001
+W                                 00000000
+WCOL                              00000007
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+WTemp                             00000020
+WTemp1                            000000A0
+WTemp2                            00000120
+WTemp3                            000001A0
+Y1_Counter                        00000027
+Y2_Counter                        0000002A
+Yellow1                           00000057
+Yellow2                           000000A6
+Z                                 00000002
+_BODEN_OFF                        00003FBF
+_BODEN_ON                         00003FFF
+_BOREN_OFF                        00003FBF
+_BOREN_ON                         00003FFF
+_CONFIG                           00002007
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_ALL                           00001FFF
+_CP_OFF                           00003FFF
+_CP_ON                            00001FFF
+_DEBUG_OFF                        00003FFF
+_DEBUG_ON                         000037FF
+_DEVID1                           00002006
+_FOSC_EXTRC                       00003FFF
+_FOSC_HS                          00003FFE
+_FOSC_LP                          00003FFC
+_FOSC_XT                          00003FFD
+_HS_OSC                           00003FFE
+_IDLOC0                           00002000
+_IDLOC1                           00002001
+_IDLOC2                           00002002
+_IDLOC3                           00002003
+_LP_OSC                           00003FFC
+_LVP_OFF                          00003F7F
+_LVP_ON                           00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDTE_OFF                         00003FFB
+MPASM  5.51                        TIMER2.ASM   5-28-2021  21:26:20         PAGE 17
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_WDTE_ON                          00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_WRT_1FOURTH                      00003BFF
+_WRT_256                          00003DFF
+_WRT_HALF                         000039FF
+_WRT_OFF                          00003FFF
+_XT_OSC                           00003FFD
+__16F877A                         00000001
+__DEBUG                           1
+check_5                           0000002C
+colouring                         0000007B
+pop                               
+push                              
+redcount2                         00000073
+redfor5s                          000000C1
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XX--XXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0040 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0080 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+00C0 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXX-- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:   220
+Program Memory Words Free:  7972
+
+
+Errors   :     0
+Warnings :    97 reported,     0 suppressed
+Messages :    10 reported,     0 suppressed
+
+

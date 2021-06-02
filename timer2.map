@@ -1,0 +1,74 @@
+MPLINK 4.49, Linker
+Linker Map File - Created Fri May 28 21:27:21 2021
+
+                                 Section Info
+                  Section       Type    Address   Location Size(Bytes)
+                ---------  ---------  ---------  ---------  ---------
+                   .org_0       code   0x000000    program   0x000000
+                   .org_1       code   0x000000    program   0x000004
+                   .org_2       code   0x000004    program   0x0001b4
+
+
+
+                              Program Memory Usage 
+                               Start         End      
+                           ---------   ---------      
+                            0x000000    0x000001      
+                            0x000004    0x0000dd      
+            220 out of 8454 program addresses used, program memory utilization is 2%
+
+
+
+                              Symbols - Sorted by Name
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+                 Continue   0x0000c9    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+       EXTERNAL_INTERRUPT   0x0000cb    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                   Green1   0x00004d    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                   Green2   0x0000a0    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                  INT_SVC   0x0000ce    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                  Initial   0x000008    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                     Main   0x000005    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                 MainLoop   0x000006    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                     POLL   0x0000d3    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                     Red1   0x000065    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                     Red2   0x00009b    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+           Seven_segments   0x00003d    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                       T2   0x0000b4    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                      TL1   0x000048    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                      TL2   0x000096    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+           Traffic_lights   0x000048    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                  Yellow1   0x000057    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                  Yellow2   0x0000a6    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                colouring   0x00007b    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                redcount2   0x000073    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                 redfor5s   0x0000c1    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+
+
+
+                              Symbols - Sorted by Address
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+                     Main   0x000005    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                 MainLoop   0x000006    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                  Initial   0x000008    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+           Seven_segments   0x00003d    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+           Traffic_lights   0x000048    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                      TL1   0x000048    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                   Green1   0x00004d    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                  Yellow1   0x000057    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                     Red1   0x000065    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                redcount2   0x000073    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                colouring   0x00007b    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                      TL2   0x000096    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                     Red2   0x00009b    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                   Green2   0x0000a0    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                  Yellow2   0x0000a6    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                       T2   0x0000b4    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                 redfor5s   0x0000c1    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                 Continue   0x0000c9    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+       EXTERNAL_INTERRUPT   0x0000cb    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                  INT_SVC   0x0000ce    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+                     POLL   0x0000d3    program     static C:\Users\areen\Desktop\New folder\timer2.asm
+
+
